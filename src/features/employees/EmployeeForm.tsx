@@ -185,8 +185,22 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                             type="number"
                             required
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                            value={formData.basicSalary}
-                            onChange={e => setFormData({ ...formData, basicSalary: Number(e.target.value) })}
+                            value={formData.basicSalary.toString()}
+                            onChange={e => {
+                                // Parse value to integer to remove leading zeros automatically
+                                // e.g. "012" -> 12
+                                const val = e.target.value;
+                                if (val === '') {
+                                    setFormData({ ...formData, basicSalary: 0 });
+                                    return;
+                                }
+                                const num = parseInt(val, 10);
+                                setFormData({ ...formData, basicSalary: isNaN(num) ? 0 : num });
+                            }}
+                            onBlur={() => {
+                                // Double check formatting on blur
+                                setFormData(prev => ({ ...prev, basicSalary: Number(prev.basicSalary) }));
+                            }}
                         />
                     </div>
                     {!isAdding && (

@@ -22,23 +22,23 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
             <div className="bg-white shadow">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
-                        <div className="flex">
+                        <div className="flex flex-1 overflow-hidden">
                             <div className="flex-shrink-0 flex items-center">
                                 <span className="text-xl font-bold text-blue-600">Payroll App</span>
                             </div>
-                            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            <div className="ml-4 flex-1 flex items-center space-x-4 overflow-x-auto sm:ml-6 sm:space-x-8 min-w-0 pb-1 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
                                 {navigation.map((item) => (
                                     <button
                                         key={item.id}
                                         onClick={() => onTabChange(item.id)}
                                         className={cn(
-                                            'inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium',
+                                            'inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap flex-shrink-0',
                                             activeTab === item.id
                                                 ? 'border-blue-500 text-gray-900'
                                                 : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                                         )}
                                     >
-                                        <item.icon className="w-4 h-4 mr-2" />
+                                        <item.icon className="min-w-4 w-4 h-4 mr-2" />
                                         {item.name}
                                     </button>
                                 ))}
