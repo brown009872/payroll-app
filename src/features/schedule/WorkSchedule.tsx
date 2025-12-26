@@ -220,9 +220,13 @@ export const WorkSchedule: React.FC = () => {
 
                                         // Calculate Pay Day for this week
                                         const delayKey = `${formatDate(endOfWeek)}_${emp.id}`;
-                                        const delay = weeklyDelays[delayKey] || 0;
-                                        const payDateObj = addDays(endOfWeek, delay);
-                                        const payDateStr = formatDate(payDateObj);
+                                        const delayVal = weeklyDelays[delayKey];
+
+                                        let payDateStr = '';
+                                        if (delayVal !== undefined) {
+                                            const payDateObj = addDays(endOfWeek, delayVal);
+                                            payDateStr = formatDate(payDateObj);
+                                        }
 
                                         return (
                                             <tr key={emp.id} className={isOnLeave ? "bg-gray-50 opacity-75" : "hover:bg-gray-50"}>

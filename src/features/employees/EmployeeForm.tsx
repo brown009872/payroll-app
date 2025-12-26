@@ -17,7 +17,7 @@ interface FormData {
     code?: string;
     position: string;
     department?: string;
-    basicSalary: number;
+    basicSalary: number | string;
     hourlyRate?: number;
     status: 'active' | 'inactive' | 'resigned';
     joinedDate: string;
@@ -36,7 +36,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
     const [formData, setFormData] = useState<FormData>({
         fullName: '',
         position: 'Nhân viên',
-        basicSalary: 0,
+        basicSalary: '', // Initialize as empty string or 0 depending on preference, but empty allows placeholder
         status: 'active',
         joinedDate: getTodayStr()
     });
@@ -185,21 +185,23 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                             type="number"
                             required
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                            value={formData.basicSalary.toString()}
+                            value={formData.basicSalary}
                             onChange={e => {
-                                // Parse value to integer to remove leading zeros automatically
-                                // e.g. "012" -> 12
                                 const val = e.target.value;
                                 if (val === '') {
-                                    setFormData({ ...formData, basicSalary: 0 });
+                                    setFormData({ ...formData, basicSalary: '' });
                                     return;
                                 }
-                                const num = parseInt(val, 10);
-                                setFormData({ ...formData, basicSalary: isNaN(num) ? 0 : num });
+                                // Regex: remove one or more zeros at start ONLY if followed by a digit
+                                const normalized = val.replace(/^0+(?=\d)/, '');
+                                setFormData({ ...formData, basicSalary: normalized });
                             }}
-                            onBlur={() => {
-                                // Double check formatting on blur
-                                setFormData(prev => ({ ...prev, basicSalary: Number(prev.basicSalary) }));
+                            onBlur={e => {
+                                const val = e.target.value;
+                                if (val !== '') {
+                                    const normalized = val.replace(/^0+(?=\d)/, '');
+                                    setFormData(prev => ({ ...prev, basicSalary: normalized }));
+                                }
                             }}
                         />
                     </div>

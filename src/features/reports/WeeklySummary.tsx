@@ -51,18 +51,26 @@ export const WeeklySummary: React.FC = () => {
 
             // Calculate Pay Date
             const delayKey = `${formatDate(endOfWeek)}_${emp.id}`;
-            const delayDays = weeklyDelays[delayKey] || 0;
+            const delayVal = weeklyDelays[delayKey]; // undefined if not set
+            // const delayDays = weeklyDelays[delayKey] || 0; // OLD
 
-            const payDateObj = addDays(endOfWeek, delayDays);
-            const payDateStr = formatDate(payDateObj);
+            let payDateStr = '';
+            let payDelayDays = 0;
+
+            if (delayVal !== undefined) {
+                payDelayDays = delayVal;
+                const payDateObj = addDays(endOfWeek, delayVal);
+                payDateStr = formatDate(payDateObj);
+            }
 
             return {
                 employee: emp,
                 days,
                 totalHoursWeek,
                 totalAmountWeek,
-                payDelayDays: delayDays,
-                payDateStr
+                payDelayDays, // For input value (default 0 is fine for input, but display logic differs)
+                payDateStr,   // Empty if not set
+                hasDelaySet: delayVal !== undefined
             };
         }).filter(item => {
             const hasData = item.days.some(d => d.hours > 0 || d.amount > 0);
@@ -167,15 +175,28 @@ export const WeeklySummary: React.FC = () => {
                                                     min="0"
                                                     className="w-16 p-1 border rounded text-center"
                                                     value={payDelayDays}
+                                                    placeholder={!payDateStr ? "Set" : ""}
                                                     onChange={(e) => {
-                                                        const val = parseInt(e.target.value) || 0;
+                                                        const val = e.target.value;
                                                         const weekKey = formatDate(endOfWeek);
-                                                        setWeeklyDelay(weekKey, employee.id, val);
+                                                        if (val === '') {
+                                                            // Optional: decide if empty string means "unset". 
+                                                            // For now, let's keep number parsing. 
+                                                            // If we want to "unset", we might need a clear button or strictly handle empty string.
+                                                            // Given requirement: "Pay date only if delay set".
+                                                            // Let's assume typing '0' sets it to 0. 
+                                                            // But to "unset" might require a different action or treating empty as unset?
+                                                            // Let's stick to: typing number sets it.
+                                                        }
+                                                        const num = parseInt(val);
+                                                        if (!isNaN(num)) {
+                                                            setWeeklyDelay(weekKey, employee.id, num);
+                                                        }
                                                     }}
                                                 />
                                             </td>
                                             <td className="px-3 py-4 text-center font-medium text-blue-700 whitespace-nowrap">
-                                                {new Date(payDateStr).toLocaleDateString('en-GB')}
+                                                {payDateStr ? new Date(payDateStr).toLocaleDateString('en-GB') : <span className="text-gray-400 italic text-xs">Not set</span>}
                                             </td>
                                             <td className="px-3 py-4 text-center">
                                                 <button
