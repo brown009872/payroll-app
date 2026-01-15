@@ -24,6 +24,7 @@ export const WeeklySummary: React.FC = () => {
         return employees.map(emp => {
             let totalHoursWeek = 0;
             let totalAmountWeek = 0;
+            let totalPenaltyWeek = 0; // CHI column
 
             const days = weekDays.map(day => {
                 const dateStr = formatDate(day);
@@ -32,27 +33,30 @@ export const WeeklySummary: React.FC = () => {
 
                 let hours = 0;
                 let amount = 0;
+                let penalty = 0;
 
                 if (record) {
+                    penalty = Number(record.penalty || 0);
+
                     if (record.totalHours !== undefined && record.dayTotal !== undefined) {
                         hours = record.totalHours;
                         amount = record.dayTotal;
                     } else {
                         hours = calculateHours(record.inTime || '', record.outTime || '');
-                        amount = calculateDayTotal(hours, record.hourlyRate, Number(record.bonus || 0), Number(record.penalty || 0), record.holidayMultiplierValue || 1);
+                        amount = calculateDayTotal(hours, record.hourlyRate, Number(record.bonus || 0), penalty, record.holidayMultiplierValue || 1);
                     }
                 }
 
                 totalHoursWeek += hours;
                 totalAmountWeek += amount;
+                totalPenaltyWeek += penalty;
 
-                return { date: dateStr, hours, amount };
+                return { date: dateStr, hours, amount, penalty };
             });
 
             // Calculate Pay Date
             const delayKey = `${formatDate(endOfWeek)}_${emp.id}`;
-            const delayVal = weeklyDelays[delayKey]; // undefined if not set
-            // const delayDays = weeklyDelays[delayKey] || 0; // OLD
+            const delayVal = weeklyDelays[delayKey];
 
             let payDateStr = '';
             let payDelayDays = 0;
@@ -68,8 +72,9 @@ export const WeeklySummary: React.FC = () => {
                 days,
                 totalHoursWeek,
                 totalAmountWeek,
-                payDelayDays, // For input value (default 0 is fine for input, but display logic differs)
-                payDateStr,   // Empty if not set
+                totalPenaltyWeek, // CHI
+                payDelayDays,
+                payDateStr,
                 hasDelaySet: delayVal !== undefined
             };
         }).filter(item => {
@@ -80,6 +85,7 @@ export const WeeklySummary: React.FC = () => {
 
     const grandTotalHours = weekData.reduce((sum, item) => sum + item.totalHoursWeek, 0);
     const grandTotalAmount = weekData.reduce((sum, item) => sum + item.totalAmountWeek, 0);
+    const grandTotalPenalty = weekData.reduce((sum, item) => sum + item.totalPenaltyWeek, 0);
 
     return (
         <div className="space-y-6">
@@ -105,7 +111,7 @@ export const WeeklySummary: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
                     <Card>
                         <CardContent className="flex flex-col items-center justify-center p-6">
                             <span className="text-sm font-medium text-gray-500 uppercase">Total Hours</span>
@@ -116,6 +122,12 @@ export const WeeklySummary: React.FC = () => {
                         <CardContent className="flex flex-col items-center justify-center p-6">
                             <span className="text-sm font-medium text-gray-500 uppercase">Total Payroll</span>
                             <span className="text-3xl font-bold text-green-600">{formatCurrency(grandTotalAmount)}</span>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardContent className="flex flex-col items-center justify-center p-6">
+                            <span className="text-sm font-medium text-gray-500 uppercase">Total CHI (Penalty)</span>
+                            <span className="text-3xl font-bold text-red-600">{formatCurrency(grandTotalPenalty)}</span>
                         </CardContent>
                     </Card>
                 </div>
@@ -137,6 +149,7 @@ export const WeeklySummary: React.FC = () => {
                                     ))}
                                     <th className="px-3 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Hrs</th>
                                     <th className="px-3 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Amt</th>
+                                    <th className="px-3 py-3 text-right font-medium text-red-500 uppercase tracking-wider">CHI</th>
                                     <th className="px-3 py-3 text-center font-medium text-gray-500 uppercase tracking-wider text-xs">Delay</th>
                                     <th className="px-3 py-3 text-center font-medium text-gray-500 uppercase tracking-wider">Pay Date</th>
                                     <th className="px-3 py-3 text-center font-medium text-gray-500 uppercase tracking-wider w-10"></th>
@@ -144,9 +157,9 @@ export const WeeklySummary: React.FC = () => {
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {weekData.length === 0 ? (
-                                    <tr><td colSpan={13} className="px-6 py-4 text-center text-gray-500">No data</td></tr>
+                                    <tr><td colSpan={14} className="px-6 py-4 text-center text-gray-500">No data</td></tr>
                                 ) : (
-                                    weekData.map(({ employee, days, totalHoursWeek, totalAmountWeek, payDelayDays, payDateStr }) => (
+                                    weekData.map(({ employee, days, totalHoursWeek, totalAmountWeek, totalPenaltyWeek, payDelayDays, payDateStr }) => (
                                         <tr key={employee.id} className="hover:bg-gray-50">
                                             <td className="px-3 py-4 font-medium text-gray-900 sticky left-0 bg-white shadow-sm z-10 whitespace-nowrap">
                                                 {employee.fullName}
@@ -169,6 +182,9 @@ export const WeeklySummary: React.FC = () => {
                                             <td className="px-3 py-4 text-right font-bold text-green-600">
                                                 {formatCurrency(totalAmountWeek)}
                                             </td>
+                                            <td className="px-3 py-4 text-right font-bold text-red-600">
+                                                {totalPenaltyWeek > 0 ? formatCurrency(totalPenaltyWeek) : '-'}
+                                            </td>
                                             <td className="px-3 py-4 text-center text-gray-500 text-xs">
                                                 <input
                                                     type="number"
@@ -179,15 +195,6 @@ export const WeeklySummary: React.FC = () => {
                                                     onChange={(e) => {
                                                         const val = e.target.value;
                                                         const weekKey = formatDate(endOfWeek);
-                                                        if (val === '') {
-                                                            // Optional: decide if empty string means "unset". 
-                                                            // For now, let's keep number parsing. 
-                                                            // If we want to "unset", we might need a clear button or strictly handle empty string.
-                                                            // Given requirement: "Pay date only if delay set".
-                                                            // Let's assume typing '0' sets it to 0. 
-                                                            // But to "unset" might require a different action or treating empty as unset?
-                                                            // Let's stick to: typing number sets it.
-                                                        }
                                                         const num = parseInt(val);
                                                         if (!isNaN(num)) {
                                                             setWeeklyDelay(weekKey, employee.id, num);

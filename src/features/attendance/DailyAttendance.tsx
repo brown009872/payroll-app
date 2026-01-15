@@ -250,12 +250,9 @@ export const DailyAttendance: React.FC = () => {
                                                 <input
                                                     type="number"
                                                     className="w-full border-gray-300 rounded-md text-sm p-1 border"
-                                                    value={record.bonus}
+                                                    value={record.bonus === 0 ? '' : record.bonus}
                                                     placeholder="0"
                                                     min="0"
-                                                    onFocus={() => {
-                                                        if (record.bonus === 0) updateRecord(emp.id, 'bonus', '');
-                                                    }}
                                                     onChange={e => updateRecord(emp.id, 'bonus', e.target.value)}
                                                     onBlur={() => {
                                                         if (record.bonus === '' || record.bonus === null || record.bonus === undefined) {
@@ -268,12 +265,9 @@ export const DailyAttendance: React.FC = () => {
                                                 <input
                                                     type="number"
                                                     className="w-full border-gray-300 rounded-md text-sm p-1 border"
-                                                    value={record.penalty}
+                                                    value={record.penalty === 0 ? '' : record.penalty}
                                                     placeholder="0"
                                                     min="0"
-                                                    onFocus={() => {
-                                                        if (record.penalty === 0) updateRecord(emp.id, 'penalty', '');
-                                                    }}
                                                     onChange={e => updateRecord(emp.id, 'penalty', e.target.value)}
                                                     onBlur={() => {
                                                         if (record.penalty === '' || record.penalty === null || record.penalty === undefined) {

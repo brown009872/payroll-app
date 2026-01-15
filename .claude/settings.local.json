@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(netlify deploy:*)",
+      "Bash(npm install:*)",
+      "Bash(npx netlify-cli deploy:*)",
+      "Bash(npx netlify-cli:*)",
+      "Bash(node:*)",
+      "Bash(move:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)"
+    ]
+  }
+}

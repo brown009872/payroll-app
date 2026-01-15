@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
-import type { Employee } from '../../types';
+import type { Employee, EmployeeColorId } from '../../types';
+import { EMPLOYEE_COLORS } from '../../types';
 import { getTodayStr } from '../../utils/date';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Check } from 'lucide-react';
 
 interface EmployeeFormProps {
     isOpen: boolean;
@@ -25,6 +26,7 @@ interface FormData {
     leaveStartDate?: string;
     leaveEndDate?: string;
     leaveTotalDays?: number;
+    color?: EmployeeColorId;
 }
 
 export const EmployeeForm: React.FC<EmployeeFormProps> = ({
@@ -59,7 +61,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 resignedDate: initialData.resignedDate,
                 leaveStartDate: initialData.leaveStartDate,
                 leaveEndDate: initialData.leaveEndDate,
-                leaveTotalDays: initialData.leaveTotalDays
+                leaveTotalDays: initialData.leaveTotalDays,
+                color: initialData.color
             });
 
             const standards = ['Quản lý', 'Nhân viên'];
@@ -84,7 +87,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 position: 'Nhân viên',
                 basicSalary: 0,
                 status: 'active',
-                joinedDate: getTodayStr()
+                joinedDate: getTodayStr(),
+                color: 'blue'
             });
             setIsCustomPosition(false);
             setCustomPosition('');
@@ -106,7 +110,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             // Ensure types
             basicSalary: Number(formData.basicSalary),
             hourlyRate: formData.hourlyRate ? Number(formData.hourlyRate) : undefined,
-            leaveTotalDays: formData.leaveTotalDays ? Number(formData.leaveTotalDays) : undefined
+            leaveTotalDays: formData.leaveTotalDays ? Number(formData.leaveTotalDays) : undefined,
+            color: formData.color
         });
         onClose();
     };
@@ -236,6 +241,45 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                             />
                         </div>
                     </div>
+                </div>
+
+                {/* Schedule Card Color */}
+                <div className="border-t pt-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Schedule Card Color</h4>
+                    <p className="text-xs text-gray-500 mb-3">Choose a color for this employee's schedule cards</p>
+                    <div className="flex flex-wrap gap-2">
+                        {EMPLOYEE_COLORS.map(color => (
+                            <button
+                                key={color.id}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, color: color.id })}
+                                className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${
+                                    formData.color === color.id
+                                        ? 'border-gray-800 ring-2 ring-offset-1 ring-gray-400'
+                                        : 'border-transparent hover:border-gray-300'
+                                }`}
+                                style={{ backgroundColor: color.hex }}
+                                title={color.id.charAt(0).toUpperCase() + color.id.slice(1)}
+                            >
+                                {formData.color === color.id && (
+                                    <Check className="w-5 h-5 text-gray-700" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                    {/* Preview */}
+                    {formData.color && (
+                        <div className="mt-3 p-2 bg-gray-50 rounded-md">
+                            <span className="text-xs text-gray-500 mr-2">Preview:</span>
+                            <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                                EMPLOYEE_COLORS.find(c => c.id === formData.color)?.bg
+                            } ${
+                                EMPLOYEE_COLORS.find(c => c.id === formData.color)?.text
+                            }`}>
+                                {formData.fullName || 'Employee Name'}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Inactive / On Leave Section */}

@@ -29,7 +29,7 @@ interface AppState {
     resetAllData: () => Promise<void>;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
     employees: [],
     attendance: {},
     workSchedules: {},
@@ -40,25 +40,30 @@ export const useAppStore = create<AppState>((set) => ({
         set({ isLoading: true });
         try {
             // 1. Employees
-            const { data: empData } = await supabase.from('employees').select('*');
+            const { data: empData, error: empError } = await supabase.from('employees').select('*');
+            if (empError) throw empError;
+
             const mappedEmps: Employee[] = (empData || []).map((e: any) => ({
                 id: e.id,
                 fullName: e.full_name,
                 code: e.code,
                 position: e.position,
                 department: e.department,
-                basicSalary: e.basic_salary,
+                basicSalary: e.basic_salary, // Expecting number from DB logic or component handles string conversion before save
                 hourlyRate: e.hourly_rate,
                 status: e.status,
                 joinedDate: e.joined_date,
                 resignedDate: e.resigned_date,
                 leaveStartDate: e.leave_start_date,
                 leaveEndDate: e.leave_end_date,
-                leaveTotalDays: e.leave_total_days
+                leaveTotalDays: e.leave_total_days,
+                color: e.color
             }));
 
             // 2. Attendance
-            const { data: attData } = await supabase.from('attendance').select('*');
+            const { data: attData, error: attError } = await supabase.from('attendance').select('*');
+            if (attError) throw attError;
+
             const attMap: Record<string, AttendanceRecord> = {};
             (attData || []).forEach((a: any) => {
                 const key = `${a.date}_${a.employee_id}`;
@@ -80,7 +85,9 @@ export const useAppStore = create<AppState>((set) => ({
             });
 
             // 3. Work Schedules
-            const { data: schData } = await supabase.from('work_schedules').select('*');
+            const { data: schData, error: schError } = await supabase.from('work_schedules').select('*');
+            if (schError) throw schError;
+
             const schMap: Record<string, WorkScheduleEntry> = {};
             (schData || []).forEach((s: any) => {
                 const key = `${s.date}_${s.employee_id}`;
@@ -101,7 +108,9 @@ export const useAppStore = create<AppState>((set) => ({
             });
 
             // 4. Delay Settings
-            const { data: delayData } = await supabase.from('delay_settings').select('*');
+            const { data: delayData, error: delayError } = await supabase.from('delay_settings').select('*');
+            if (delayError) throw delayError;
+
             const delayMap: Record<string, number> = {};
             (delayData || []).forEach((d: any) => {
                 const key = `${d.week_end_date}_${d.employee_id}`;
@@ -131,7 +140,7 @@ export const useAppStore = create<AppState>((set) => ({
                     set((state) => {
                         const newSchedules = { ...state.workSchedules };
                         if (eventType === 'INSERT' || eventType === 'UPDATE') {
-                            const s: any = newRec; // Type assertion since payload.new might be Partial
+                            const s: any = newRec;
                             const key = `${s.date}_${s.employee_id}`;
                             newSchedules[key] = {
                                 id: s.id,
@@ -148,7 +157,6 @@ export const useAppStore = create<AppState>((set) => ({
                                 }
                             };
                         } else if (eventType === 'DELETE') {
-                            // Using oldRec which should contain ID
                             const deletedId = (oldRec as any).id;
                             const key = Object.keys(newSchedules).find(k => newSchedules[k].id === deletedId);
                             if (key) delete newSchedules[key];
@@ -169,103 +177,159 @@ export const useAppStore = create<AppState>((set) => ({
         const newEmp = { ...emp, id: tempId };
         set(state => ({ employees: [...state.employees, newEmp] }));
 
-        const { data } = await supabase.from('employees').insert({
-            full_name: emp.fullName,
-            code: emp.code,
-            position: emp.position,
-            department: emp.department,
-            basic_salary: emp.basicSalary,
-            hourly_rate: emp.hourlyRate,
-            status: emp.status,
-            joined_date: emp.joinedDate
-        }).select().single();
+        try {
+            const { data, error } = await supabase.from('employees').insert({
+                full_name: emp.fullName,
+                code: emp.code,
+                position: emp.position,
+                department: emp.department,
+                basic_salary: emp.basicSalary,
+                hourly_rate: emp.hourlyRate,
+                status: emp.status,
+                joined_date: emp.joinedDate,
+                color: emp.color
+            }).select().single();
 
-        if (data) {
-            set(state => ({
-                employees: state.employees.map(e => e.id === tempId ? { ...e, id: data.id } : e)
-            }));
+            if (error) throw error;
+
+            if (data) {
+                set(state => ({
+                    employees: state.employees.map(e => e.id === tempId ? { ...e, id: data.id } : e)
+                }));
+            }
+        } catch (error) {
+            console.error('Error adding employee:', error);
+            // Rollback optimistic update on error
+            set(state => ({ employees: state.employees.filter(e => e.id !== tempId) }));
         }
     },
 
     updateEmployee: async (id, changes) => {
+        const previousEmployees = get().employees;
         set(state => ({
             employees: state.employees.map(e => e.id === id ? { ...e, ...changes } : e)
         }));
 
-        const dbPayload: any = {};
-        if (changes.fullName !== undefined) dbPayload.full_name = changes.fullName;
-        if (changes.code !== undefined) dbPayload.code = changes.code;
-        if (changes.position !== undefined) dbPayload.position = changes.position;
-        if (changes.department !== undefined) dbPayload.department = changes.department;
-        if (changes.basicSalary !== undefined) dbPayload.basic_salary = changes.basicSalary;
-        if (changes.hourlyRate !== undefined) dbPayload.hourly_rate = changes.hourlyRate;
-        if (changes.status !== undefined) dbPayload.status = changes.status;
-        if (changes.joinedDate !== undefined) dbPayload.joined_date = changes.joinedDate;
-        if (changes.resignedDate !== undefined) dbPayload.resigned_date = changes.resignedDate;
-        if (changes.leaveStartDate !== undefined) dbPayload.leave_start_date = changes.leaveStartDate;
-        if (changes.leaveEndDate !== undefined) dbPayload.leave_end_date = changes.leaveEndDate;
-        if (changes.leaveTotalDays !== undefined) dbPayload.leave_total_days = changes.leaveTotalDays;
+        try {
+            const dbPayload: any = {};
+            if (changes.fullName !== undefined) dbPayload.full_name = changes.fullName;
+            if (changes.code !== undefined) dbPayload.code = changes.code;
+            if (changes.position !== undefined) dbPayload.position = changes.position;
+            if (changes.department !== undefined) dbPayload.department = changes.department;
+            if (changes.basicSalary !== undefined) dbPayload.basic_salary = changes.basicSalary;
+            if (changes.hourlyRate !== undefined) dbPayload.hourly_rate = changes.hourlyRate;
+            if (changes.status !== undefined) dbPayload.status = changes.status;
+            if (changes.joinedDate !== undefined) dbPayload.joined_date = changes.joinedDate;
+            if (changes.resignedDate !== undefined) dbPayload.resigned_date = changes.resignedDate;
+            if (changes.leaveStartDate !== undefined) dbPayload.leave_start_date = changes.leaveStartDate;
+            if (changes.leaveEndDate !== undefined) dbPayload.leave_end_date = changes.leaveEndDate;
+            if (changes.leaveTotalDays !== undefined) dbPayload.leave_total_days = changes.leaveTotalDays;
+            if (changes.color !== undefined) dbPayload.color = changes.color;
 
-        await supabase.from('employees').update(dbPayload).eq('id', id);
+            const { error } = await supabase.from('employees').update(dbPayload).eq('id', id);
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error updating employee:', error);
+            set({ employees: previousEmployees });
+        }
     },
 
     deleteEmployee: async (id) => {
+        const previousEmployees = get().employees;
         set(state => ({ employees: state.employees.filter(e => e.id !== id) }));
-        await supabase.from('employees').delete().eq('id', id);
+
+        try {
+            const { error } = await supabase.from('employees').delete().eq('id', id);
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error deleting employee:', error);
+            set({ employees: previousEmployees });
+        }
     },
 
     setWeeklyDelay: async (weekEndDate, employeeId, days) => {
         const key = `${weekEndDate}_${employeeId}`;
+        const previousDelays = { ...get().weeklyDelays };
         set(state => ({ weeklyDelays: { ...state.weeklyDelays, [key]: days } }));
 
-        await supabase.from('delay_settings').upsert({
-            week_end_date: weekEndDate,
-            employee_id: employeeId,
-            delay_days: days
-        }, { onConflict: 'week_end_date,employee_id' });
+        try {
+            const { error } = await supabase.from('delay_settings').upsert({
+                week_end_date: weekEndDate,
+                employee_id: employeeId,
+                delay_days: days
+            }, { onConflict: 'week_end_date,employee_id' }).select().single();
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error setting delay:', error);
+            set({ weeklyDelays: previousDelays });
+        }
     },
 
     updateAttendance: async (record) => {
         const key = `${record.date}_${record.employeeId}`;
+        const previousAttendance = { ...get().attendance };
         set(state => ({ attendance: { ...state.attendance, [key]: record } }));
 
-        await supabase.from('attendance').upsert({
-            date: record.date,
-            employee_id: record.employeeId,
-            in_time: record.inTime,
-            out_time: record.outTime,
-            hourly_rate: record.hourlyRate,
-            bonus: record.bonus,
-            penalty: record.penalty,
-            total_hours: record.totalHours,
-            provisional_amount: record.provisionalAmount,
-            day_total: record.dayTotal,
-            holiday_multiplier_type: record.holidayMultiplierType,
-            holiday_multiplier_value: record.holidayMultiplierValue
-        }, { onConflict: 'date,employee_id' });
+        try {
+            const { error } = await supabase.from('attendance').upsert({
+                date: record.date,
+                employee_id: record.employeeId,
+                in_time: record.inTime,
+                out_time: record.outTime,
+                hourly_rate: record.hourlyRate,
+                bonus: record.bonus,
+                penalty: record.penalty,
+                total_hours: record.totalHours,
+                provisional_amount: record.provisionalAmount,
+                day_total: record.dayTotal,
+                holiday_multiplier_type: record.holidayMultiplierType,
+                holiday_multiplier_value: record.holidayMultiplierValue
+            }, { onConflict: 'date,employee_id' }).select().single();
+
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error updating attendance:', error);
+            set({ attendance: previousAttendance });
+        }
     },
 
     deleteAttendance: async (date, employeeId) => {
         const key = `${date}_${employeeId}`;
+        const previousAttendance = { ...get().attendance };
         set(state => {
             const next = { ...state.attendance };
             delete next[key];
             return { attendance: next };
         });
-        // Supabase doesn't support .match in this client version broadly, better use filter
-        await supabase.from('attendance').delete().eq('date', date).eq('employee_id', employeeId);
+
+        try {
+            const { error } = await supabase.from('attendance').delete().eq('date', date).eq('employee_id', employeeId);
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error deleting attendance:', error);
+            set({ attendance: previousAttendance });
+        }
     },
 
     deleteAttendanceForEmployeeInWeek: async (employeeId, dates) => {
+        const previousAttendance = { ...get().attendance };
         set(state => {
             const next = { ...state.attendance };
             dates.forEach(d => delete next[`${d}_${employeeId}`]);
             return { attendance: next };
         });
-        await supabase.from('attendance').delete().eq('employee_id', employeeId).in('date', dates);
+
+        try {
+            const { error } = await supabase.from('attendance').delete().eq('employee_id', employeeId).in('date', dates);
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error deleting weekly attendance:', error);
+            set({ attendance: previousAttendance });
+        }
     },
 
     clearAttendanceForDate: async (date) => {
+        const previousAttendance = { ...get().attendance };
         set(state => {
             const next = { ...state.attendance };
             Object.keys(next).forEach(k => {
@@ -273,40 +337,62 @@ export const useAppStore = create<AppState>((set) => ({
             });
             return { attendance: next };
         });
-        await supabase.from('attendance').delete().eq('date', date);
+
+        try {
+            const { error } = await supabase.from('attendance').delete().eq('date', date);
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error clearing daily attendance:', error);
+            set({ attendance: previousAttendance });
+        }
     },
 
     upsertSchedule: async (entry) => {
         const key = `${entry.date}_${entry.employeeId}`;
+        const previousSchedules = { ...get().workSchedules };
         set(state => ({ workSchedules: { ...state.workSchedules, [key]: entry } }));
 
-        await supabase.from('work_schedules').upsert({
-            date: entry.date,
-            employee_id: entry.employeeId,
-            morning: entry.morning,
-            evening: entry.evening,
-            morning_new: entry.morningNew,
-            evening_new: entry.eveningNew,
-            custom_shift_enabled: entry.customShift?.enabled || false,
-            custom_shift_start: entry.customShift?.startTime || null,
-            custom_shift_end: entry.customShift?.endTime || null
-        }, { onConflict: 'date,employee_id' });
+        try {
+            const { error } = await supabase.from('work_schedules').upsert({
+                date: entry.date,
+                employee_id: entry.employeeId,
+                morning: entry.morning,
+                evening: entry.evening,
+                morning_new: entry.morningNew,
+                evening_new: entry.eveningNew,
+                custom_shift_enabled: entry.customShift?.enabled || false,
+                custom_shift_start: entry.customShift?.startTime || null,
+                custom_shift_end: entry.customShift?.endTime || null
+            }, { onConflict: 'date,employee_id' }).select().single();
+
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error upserting schedule:', error);
+            set({ workSchedules: previousSchedules });
+        }
     },
 
     deleteScheduleForWeek: async (employeeId, dates) => {
+        const previousSchedules = { ...get().workSchedules };
         set(state => {
             const next = { ...state.workSchedules };
             dates.forEach(d => delete next[`${d}_${employeeId}`]);
             return { workSchedules: next };
         });
-        await supabase.from('work_schedules').delete().eq('employee_id', employeeId).in('date', dates);
+
+        try {
+            const { error } = await supabase.from('work_schedules').delete().eq('employee_id', employeeId).in('date', dates);
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error deleting schedule week:', error);
+            set({ workSchedules: previousSchedules });
+        }
     },
 
     resetAllData: async () => {
         if (confirm("Are you sure you want to WIPE ALL DATA on the server?")) {
-            // For safety, not really doing truncate, but let's clear local to show effect or implement massive delete if really needed.
-            // Given the context, let's just warn and clear local + attempt basic cleanup if user insists.
             set({ employees: [], attendance: {}, workSchedules: {}, weeklyDelays: {} });
+            // Implement server wipe if truly needed
         }
     },
 }));

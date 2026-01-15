@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Calendar, BarChart3, FileText, CalendarRange } from 'lucide-react';
+import { Users, Calendar, BarChart3, FileText, CheckSquare, BookOpen } from 'lucide-react';
 import { cn } from './ui/Button';
 
 interface LayoutProps {
@@ -10,9 +10,10 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
     const navigation = [
+        { name: 'S2A Ledger', id: 's2a', icon: BookOpen },
         { name: 'Employees', id: 'employees', icon: Users },
         { name: 'Daily Attendance', id: 'attendance', icon: Calendar },
-        { name: 'Work Schedule', id: 'schedule', icon: CalendarRange },
+        { name: 'Lịch làm', id: 'result-schedule', icon: CheckSquare },
         { name: 'Weekly Summary', id: 'summary', icon: BarChart3 },
         { name: 'Export', id: 'export', icon: FileText },
     ];
